@@ -1,153 +1,73 @@
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QInputDialog, QListWidget
+
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QInputDialog, QListWidget, QMessageBox, QPushButton, QVBoxLayout
+
 from core.folder_manager import FolderService
-from PySide6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QInputDialog,
-    QListWidget,
-    QVBoxLayout,
-)
-from qfluentwidgets import (
-    InfoBar,
-    MessageBox,
-    PrimaryPushButton,
-    PushButton,
-)
+
 
 class FolderManagerDialog(QDialog):
     def __init__(self, base_directory: Path, parent=None) -> None:
         super().__init__(parent)
-
         self.folder_service = FolderService(base_directory)
-
-        self.build_ui()
-        self.connect_signals()
-        self.load_folders()
-
-    def build_ui(self) -> None:
+        self.setWindowTitle("Administrar carpetas")
+        self.resize(520, 500)
         self.folder_list = QListWidget(self)
-
-        self.create_button = PrimaryPushButton(
-            "Crear carpeta",
-            self,
-        )
-
-        self.delete_button = PushButton(
-            "Eliminar carpeta",
-            self,
-        )
-
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.create_button)
-        button_layout.addWidget(self.delete_button)
-
+        self.create_button = QPushButton("Crear", self)
+        self.rename_button = QPushButton("Renombrar", self)
+        self.delete_button = QPushButton("Eliminar", self)
+        buttons = QHBoxLayout()
+        for button in (self.create_button, self.rename_button, self.delete_button):
+            buttons.addWidget(button)
         layout = QVBoxLayout(self)
         layout.addWidget(self.folder_list)
-        layout.addLayout(button_layout)
-
-    def connect_signals(self) -> None:
-        self.create_button.clicked.connect(
-            self.create_folder
-        )
-
-        self.delete_button.clicked.connect(
-            self.delete_selected_folder
-        )
+        layout.addLayout(buttons)
+        self.create_button.clicked.connect(self.create_folder)
+        self.rename_button.clicked.connect(self.rename_folder)
+        self.delete_button.clicked.connect(self.delete_folder)
+        self.load_folders()
 
     def load_folders(self) -> None:
         self.folder_list.clear()
-
-        base_directory = self.folder_service.base_directory
-
+        self.folder_list.addItem("Raíz")
+        self.folder_list.item(0).setData(256, self.folder_service.base_directory)
         for folder in self.folder_service.get_folders():
-            relative_path = folder.relative_to(base_directory)
+            item_text = str(folder.relative_to(self.folder_service.base_directory)).replace("/", " > ")
+            self.folder_list.addItem(item_text)
+            self.folder_list.item(self.folder_list.count() - 1).setData(256, folder)
+        self.folder_list.setCurrentRow(0)
 
-            self.folder_list.addItem(str(relative_path))
-
-    def get_selected_folder(self) -> Path | None:
-            item = self.folder_list.currentItem()
-
-            if item is None:
-                return None
-
-            return (
-                self.folder_service.base_directory
-                / item.text()
-            )
+    def selected_folder(self) -> Path:
+        item = self.folder_list.currentItem()
+        return item.data(256) if item else self.folder_service.base_directory
 
     def create_folder(self) -> None:
-        name, accepted = QInputDialog.getText(
-            self,
-            "Nueva carpeta",
-            "Nombre de la carpeta:",
-        )
-
-        if not accepted:
+        name, ok = QInputDialog.getText(self, "Nueva carpeta", "Nombre:")
+        if not ok:
             return
-
         try:
-            folder_path = self.folder_service.create_folder(name)
+            self.folder_service.create_folder(name, self.selected_folder())
         except (ValueError, FileExistsError, PermissionError, OSError) as error:
-            InfoBar.error(
-                title="No se pudo crear la carpeta",
-                content=str(error),
-                parent=self,
-                duration=3000,
-            )
-            return
-
-        InfoBar.success(
-            title="Carpeta creada",
-            content=folder_path.name,
-            parent=self,
-            duration=2000,
-        )
-
+            QMessageBox.warning(self, "No se pudo crear", str(error))
         self.load_folders()
 
-    def delete_selected_folder(self) -> None:
-            folder_path = self.get_selected_folder()
+    def rename_folder(self) -> None:
+        folder = self.selected_folder()
+        name, ok = QInputDialog.getText(self, "Renombrar carpeta", "Nuevo nombre:", text=folder.name)
+        if not ok:
+            return
+        try:
+            self.folder_service.rename_folder(folder, name)
+        except (ValueError, FileExistsError, PermissionError, OSError) as error:
+            QMessageBox.warning(self, "No se pudo renombrar", str(error))
+        self.load_folders()
 
-            if folder_path is None:
-                return
-
-            dialog = MessageBox(
-                "Eliminar carpeta",
-                f"¿Deseas eliminar '{folder_path.name}'?",
-                self,
-            )
-
-            dialog.yesButton.setText("Eliminar")
-            dialog.cancelButton.setText("Cancelar")
-
-            if not dialog.exec():
-                return
-
-            try:
-                self.folder_service.delete_folder(
-                    folder_path,
-                    recursive=False,
-                )
-            except (
-                ValueError,
-                FileNotFoundError,
-                PermissionError,
-                OSError,
-            ) as error:
-                InfoBar.error(
-                    title="No se pudo eliminar la carpeta",
-                    content=str(error),
-                    parent=self,
-                    duration=3000,
-                )
-                return
-
-            InfoBar.success(
-                title="Carpeta eliminada",
-                content=folder_path.name,
-                parent=self,
-                duration=2000,
-            )
-
-            self.load_folders()
+    def delete_folder(self) -> None:
+        folder = self.selected_folder()
+        answer = QMessageBox.question(self, "Eliminar carpeta", f"¿Eliminar '{folder.name}' y todo su contenido?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.folder_service.delete_folder(folder, recursive=True)
+        except (ValueError, FileNotFoundError, PermissionError, OSError) as error:
+            QMessageBox.warning(self, "No se pudo eliminar", str(error))
+        self.load_folders()

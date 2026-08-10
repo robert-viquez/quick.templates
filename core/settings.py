@@ -1,67 +1,56 @@
+from __future__ import annotations
+
 import json
+import os
+import sys
+from pathlib import Path
 
-def load_settings(self) -> dict:
-    defaults = self.get_default_settings()
 
-    if not self.settings_path.exists():
-        self.save_settings(defaults)
-        return defaults
+APP_NAME = "Case Templates"
 
-    try:
-        with self.settings_path.open("r", encoding="utf-8") as file:
-            loaded = json.load(file)
-    except (OSError, json.JSONDecodeError, TypeError):
-        self.save_settings(defaults)
-        return defaults
 
-    if not isinstance(loaded, dict):
-        loaded = {}
+def app_data_directory() -> Path:
+    if appdata := os.getenv("APPDATA"):
+        return Path(appdata) / APP_NAME
+    return Path.home() / ".case_templates"
 
-    settings = defaults.copy()
-    settings.update(loaded)
 
-    loaded_windows = loaded.get("window", {})
-    if not isinstance(loaded_windows, dict):
-        loaded_windows = {}
+def default_templates_directory() -> Path:
+    if getattr(sys, "frozen", False):
+        return app_data_directory() / "templates"
+    return Path(__file__).resolve().parents[1] / "templates"
 
-    # Migra versiones anteriores del archivo de configuración.
-    legacy_window_keys = {
-        "main_window": "main",
-        "editor_window": "editor",
-    }
-    for legacy_key, current_key in legacy_window_keys.items():
-        legacy_size = loaded.get(legacy_key)
-        if (
-            current_key not in loaded_windows
-            and isinstance(legacy_size, dict)
-        ):
-            loaded_windows[current_key] = legacy_size
 
-    settings["window"] = defaults["window"].copy()
-    for name, default_size in defaults["window"].items():
-        candidate = loaded_windows.get(name, {})
-        if isinstance(candidate, dict):
-            settings["window"][name] = {
-                "width": candidate.get("width", default_size["width"]),
-                "height": candidate.get("height", default_size["height"]),
-            }
+class SettingsService:
+    def __init__(self) -> None:
+        self.path = app_data_directory() / "settings.json"
+        self.data = self.load()
 
-    if not isinstance(settings.get("favorites"), list):
-        settings["favorites"] = []
-    if not isinstance(settings.get("usage"), dict):
-        settings["usage"] = {}
+    @staticmethod
+    def defaults() -> dict:
+        return {
+            "templates_directory": str(default_templates_directory()),
+            "favorites": [],
+            "usage": {},
+            "window": {"main": {"width": 820, "height": 560}},
+        }
 
-    self.save_settings(settings)
-    return settings
+    def load(self) -> dict:
+        defaults = self.defaults()
+        try:
+            loaded = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            loaded = {}
+        if not isinstance(loaded, dict):
+            loaded = {}
+        result = defaults | loaded
+        result["favorites"] = loaded.get("favorites", []) if isinstance(loaded.get("favorites", []), list) else []
+        result["usage"] = loaded.get("usage", {}) if isinstance(loaded.get("usage", {}), dict) else {}
+        result["window"] = defaults["window"] | (loaded.get("window", {}) if isinstance(loaded.get("window"), dict) else {})
+        return result
 
-def save_settings(self, settings: dict | None = None) -> None:
-    data = self.settings if settings is None else settings
-
-    try:
-        self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = self.settings_path.with_suffix(".tmp")
-        with temporary_path.open("w", encoding="utf-8") as file:
-            json.dump(data, file, indent=4, ensure_ascii=False)
-        temporary_path.replace(self.settings_path)
-    except OSError as error:
-        print(f"Could not save settings: {error}")
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(self.data, indent=2, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(self.path)

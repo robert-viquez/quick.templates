@@ -1,6 +1,6 @@
 # Case Templates
 
-A lightweight desktop application built with **Python** and **Tkinter** for creating, organizing, searching, and copying reusable text templates. The application is designed to improve productivity by reducing repetitive typing and providing instant access to frequently used texts.
+A lightweight desktop application built with **Python**, **PySide6** and **PySide6-Fluent-Widgets** for creating, organizing, searching, and copying reusable text templates. Only one application instance runs at a time; subsequent launches bring the existing window to the front.
 
 ---
 
@@ -51,8 +51,9 @@ CaseTemplates/
 Required packages:
 
 ```
-tkinter
-pyperclip
+PySide6
+PySide6-Fluent-Widgets
+keyboard
 ```
 
 Install dependencies:
@@ -136,14 +137,15 @@ Example:
 | Ctrl + F | Focus search |
 | Ctrl + C | Copy template |
 | Esc | Close dialog |
+| Ctrl + Alt + V | Show the application (global) |
 
 ---
 
 ## Technologies
 
 - Python
-- Tkinter
-- ttk
+- PySide6
+- PySide6-Fluent-Widgets
 - JSON
 - PyInstaller
 

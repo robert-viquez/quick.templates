@@ -1,145 +1,56 @@
 import re
 import shutil
 from pathlib import Path
-from PySide6.QtWidgets import QInputDialog
-from qfluentwidgets import InfoBar, InfoBarPosition
+
 
 class FolderService:
-    INVALID_WINDOWS_NAMES = {
-        "CON",
-        "PRN",
-        "AUX",
-        "NUL",
-        "COM1",
-        "COM2",
-        "COM3",
-        "COM4",
-        "COM5",
-        "COM6",
-        "COM7",
-        "COM8",
-        "COM9",
-        "LPT1",
-        "LPT2",
-        "LPT3",
-        "LPT4",
-        "LPT5",
-        "LPT6",
-        "LPT7",
-        "LPT8",
-        "LPT9",
-    }
+    INVALID_WINDOWS_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
     def __init__(self, base_directory: Path) -> None:
-        self.base_directory = base_directory
-        
+        self.base_directory = base_directory.resolve()
+
     def get_folders(self) -> list[Path]:
         if not self.base_directory.exists():
             return []
+        return sorted((p for p in self.base_directory.rglob("*") if p.is_dir()), key=lambda p: str(p).casefold())
 
-        return sorted(
-            [
-                path
-                for path in self.base_directory.rglob("*")
-                if path.is_dir()
-            ],
-            key=lambda path: str(path).casefold(),
-        )
+    def create_folder(self, name: str, parent: Path | None = None) -> Path:
+        name = self.validate_folder_name(name)
+        parent = (parent or self.base_directory).resolve()
+        self.ensure_inside_base_directory(parent)
+        target = parent / name
+        target.mkdir(parents=False, exist_ok=False)
+        return target
 
-    def create_folder(
-        self,
-        name: str,
-        parent: Path | None = None,
-    ) -> Path:
-        sanitized_name = self.validate_folder_name(name)
+    def rename_folder(self, folder: Path, name: str) -> Path:
+        folder = folder.resolve()
+        self.ensure_inside_base_directory(folder)
+        if folder == self.base_directory:
+            raise ValueError("No se puede renombrar la carpeta principal.")
+        target = folder.with_name(self.validate_folder_name(name))
+        self.ensure_inside_base_directory(target)
+        if target.exists():
+            raise FileExistsError("Ya existe una carpeta con ese nombre.")
+        return folder.rename(target)
 
-        target_parent = parent or self.base_directory
-        target_parent = target_parent.resolve()
-
-        self.ensure_inside_base_directory(target_parent)
-
-        folder_path = target_parent / sanitized_name
-
-        if folder_path.exists():
-            raise FileExistsError(
-                f"La carpeta '{sanitized_name}' ya existe."
-            )
-
-        folder_path.mkdir(parents=False, exist_ok=False)
-
-        return folder_path
-
-    def delete_folder(
-        self,
-        folder_path: Path,
-        recursive: bool = False,
-    ) -> None:
-        folder_path = folder_path.resolve()
-
-        self.ensure_inside_base_directory(folder_path)
-
-        if folder_path == self.base_directory.resolve():
-            raise ValueError(
-                "No se puede eliminar la carpeta principal."
-            )
-
-        if not folder_path.exists():
-            raise FileNotFoundError(
-                "La carpeta seleccionada no existe."
-            )
-
-        if not folder_path.is_dir():
-            raise NotADirectoryError(
-                "La ruta seleccionada no es una carpeta."
-            )
-
-        has_contents = any(folder_path.iterdir())
-
-        if has_contents and not recursive:
-            raise OSError(
-                "La carpeta no está vacía."
-            )
-
+    def delete_folder(self, folder: Path, recursive: bool = False) -> None:
+        folder = folder.resolve()
+        self.ensure_inside_base_directory(folder)
+        if folder == self.base_directory:
+            raise ValueError("No se puede eliminar la carpeta principal.")
         if recursive:
-            shutil.rmtree(folder_path)
+            shutil.rmtree(folder)
         else:
-            folder_path.rmdir()
+            folder.rmdir()
 
     def validate_folder_name(self, name: str) -> str:
-        cleaned_name = name.strip()
+        name = name.strip()
+        if not name or name.upper() in self.INVALID_WINDOWS_NAMES or re.search(r'[<>:"/\\|?*]', name) or name.endswith((".", " ")):
+            raise ValueError("El nombre de carpeta no es válido.")
+        return name
 
-        if not cleaned_name:
-            raise ValueError(
-                "El nombre de la carpeta no puede estar vacío."
-            )
-
-        if cleaned_name.upper() in self.INVALID_WINDOWS_NAMES:
-            raise ValueError(
-                "Ese nombre está reservado por Windows."
-            )
-
-        if re.search(r'[<>:"/\\|?*]', cleaned_name):
-            raise ValueError(
-                "El nombre contiene caracteres no permitidos."
-            )
-
-        if cleaned_name.endswith(".") or cleaned_name.endswith(" "):
-            raise ValueError(
-                "El nombre no puede terminar en punto o espacio."
-            )
-
-        return cleaned_name
-
-    def ensure_inside_base_directory(
-        self,
-        path: Path,
-    ) -> None:
-        base = self.base_directory.resolve()
-        resolved_path = path.resolve()
-
+    def ensure_inside_base_directory(self, path: Path) -> None:
         try:
-            resolved_path.relative_to(base)
+            path.resolve().relative_to(self.base_directory)
         except ValueError as error:
-            raise PermissionError(
-                "La ruta está fuera de la carpeta principal."
-            ) from error
+            raise PermissionError("La ruta está fuera de la carpeta principal.") from error
