@@ -26,18 +26,18 @@ class FolderService:
         folder = folder.resolve()
         self.ensure_inside_base_directory(folder)
         if folder == self.base_directory:
-            raise ValueError("No se puede renombrar la carpeta principal.")
+            raise ValueError("The root folder cannot be renamed.")
         target = folder.with_name(self.validate_folder_name(name))
         self.ensure_inside_base_directory(target)
         if target.exists():
-            raise FileExistsError("Ya existe una carpeta con ese nombre.")
+            raise FileExistsError("A folder with that name already exists.")
         return folder.rename(target)
 
     def delete_folder(self, folder: Path, recursive: bool = False) -> None:
         folder = folder.resolve()
         self.ensure_inside_base_directory(folder)
         if folder == self.base_directory:
-            raise ValueError("No se puede eliminar la carpeta principal.")
+            raise ValueError("The root folder cannot be deleted.")
         if recursive:
             shutil.rmtree(folder)
         else:
@@ -46,11 +46,11 @@ class FolderService:
     def validate_folder_name(self, name: str) -> str:
         name = name.strip()
         if not name or name.upper() in self.INVALID_WINDOWS_NAMES or re.search(r'[<>:"/\\|?*]', name) or name.endswith((".", " ")):
-            raise ValueError("El nombre de carpeta no es válido.")
+            raise ValueError("The folder name is not valid.")
         return name
 
     def ensure_inside_base_directory(self, path: Path) -> None:
         try:
             path.resolve().relative_to(self.base_directory)
         except ValueError as error:
-            raise PermissionError("La ruta está fuera de la carpeta principal.") from error
+            raise PermissionError("The path is outside the root folder.") from error
