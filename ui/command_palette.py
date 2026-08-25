@@ -199,9 +199,11 @@ class CommandPalette(WindowBase):
         self.activateWindow()
         self.focus_search()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._save_timer.start()
+
+        if hasattr(self, "_save_timer"):
+            self._save_timer.start()
 
     def save_window_size(self) -> None:
         if not self.isMaximized():
