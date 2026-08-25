@@ -32,7 +32,9 @@ class SettingsService:
             "templates_directory": str(default_templates_directory()),
             "favorites": [],
             "usage": {},
-            "window": {"main": {"width": 820, "height": 560}},
+            "show_usage_count": True,
+            "theme": "auto",
+            "window": {"main": {"width": 920, "height": 620}},
         }
 
     def load(self) -> dict:

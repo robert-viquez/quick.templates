@@ -8,6 +8,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from qfluentwidgets import Theme, setTheme
 
+from core.settings import SettingsService
 from ui.command_palette import CommandPalette
 
 SERVER_NAME = "CaseTemplates-single-instance-v1"
@@ -65,7 +66,8 @@ def main() -> int:
         instance_lock.unlock()
         return 1
 
-    setTheme(Theme.AUTO)
+    theme_key = SettingsService().data.get("theme", "auto")
+    setTheme({"light": Theme.LIGHT, "dark": Theme.DARK}.get(theme_key, Theme.AUTO))
     window = CommandPalette()
     bridge = ActivationBridge(app)
     bridge.requested.connect(window.activate_from_external_request)
@@ -81,8 +83,8 @@ def main() -> int:
     tray = QSystemTrayIcon(QIcon(str(APP_ICON)), app)
     tray.setToolTip("Case Templates")
     menu = QMenu()
-    show_action = QAction("Mostrar", menu)
-    quit_action = QAction("Salir", menu)
+    show_action = QAction("Show", menu)
+    quit_action = QAction("Quit", menu)
     show_action.triggered.connect(window.activate_from_external_request)
     quit_action.triggered.connect(window.quit)
     menu.addAction(show_action)
