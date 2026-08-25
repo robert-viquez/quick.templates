@@ -7,12 +7,13 @@ from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QFileDialog, QHBoxLayout, QHeaderView,
-    QLabel, QMainWindow, QMessageBox, QSplitter, QTableWidgetItem, QTabWidget,
-    QVBoxLayout, QWidget,
+    QLabel, QMainWindow, QMessageBox, QSplitter, QStackedWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
 )
 from qfluentwidgets import (
     BodyLabel, CheckBox, ComboBox, FluentIcon, FluentWindow, PlainTextEdit,
-    PrimaryPushButton, PushButton, SearchLineEdit, TableWidget, Theme, setTheme,
+    NavigationInterface, PrimaryPushButton, PushButton, SearchLineEdit,
+    TableWidget, Theme, setTheme,
 )
 
 from core.clipboard import ClipboardService
@@ -22,7 +23,16 @@ from models.template import Template
 from ui.editor import TemplateEditor
 from ui.folder_manager import FolderManagerDialog
 
-WindowBase = FluentWindow if sys.platform == "win32" else QMainWindow
+def supports_fluent_window() -> bool:
+    """Return whether qframelesswindow is stable on this Python/platform pair."""
+    # qframelesswindow currently crashes while constructing its custom title
+    # bar on Windows with Python 3.14. Keep Fluent controls and navigation, but
+    # let QMainWindow provide the native Windows title bar on that runtime.
+    return sys.platform == "win32" and sys.version_info < (3, 14)
+
+
+USES_FLUENT_WINDOW = supports_fluent_window()
+WindowBase = FluentWindow if USES_FLUENT_WINDOW else QMainWindow
 
 
 class CommandPalette(WindowBase):
@@ -39,7 +49,7 @@ class CommandPalette(WindowBase):
 
         size = self.settings.data.get("window", {}).get("main", {})
         self.setWindowTitle("Quick Templates")
-        if sys.platform == "win32":
+        if USES_FLUENT_WINDOW:
             self.setMicaEffectEnabled(True)
         self.resize(int(size.get("width", 920)), int(size.get("height", 620)))
         self.setMinimumSize(700, 460)
@@ -171,18 +181,32 @@ class CommandPalette(WindowBase):
             (self.folders_page, FluentIcon.FOLDER, "Folders"),
             (self.settings_page, FluentIcon.SETTING, "Settings"),
         ]
-        if sys.platform == "win32":
+        if USES_FLUENT_WINDOW:
             for page, icon, label in pages:
                 self.addSubInterface(page, icon, label)
         else:
-            tabs = QTabWidget(self)
-            for page, _icon, label in pages:
-                tabs.addTab(page, label)
-            tabs.currentChanged.connect(lambda _: self.refresh_templates())
-            self.setCentralWidget(tabs)
+            container = QWidget(self)
+            navigation = NavigationInterface(container, showMenuButton=True, collapsible=True)
+            self.fallback_stack = QStackedWidget(container)
+            for page, icon, label in pages:
+                self.fallback_stack.addWidget(page)
+                navigation.addItem(
+                    page.objectName(),
+                    icon,
+                    label,
+                    onClick=lambda checked=False, target=page: self.fallback_stack.setCurrentWidget(target),
+                )
+            navigation.setCurrentItem(self.templates_page.objectName())
+            self.fallback_stack.currentChanged.connect(lambda _: self.refresh_templates())
+            layout = QHBoxLayout(container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+            layout.addWidget(navigation)
+            layout.addWidget(self.fallback_stack, 1)
+            self.setCentralWidget(container)
 
     def active_page(self):
-        current = self.stackedWidget.currentWidget() if sys.platform == "win32" else self.centralWidget().currentWidget()
+        current = self.stackedWidget.currentWidget() if USES_FLUENT_WINDOW else self.fallback_stack.currentWidget()
         return current if current in (self.templates_page, self.favorites_page) else self.templates_page
 
     def template_key(self, template: Template) -> str:
@@ -289,9 +313,18 @@ class CommandPalette(WindowBase):
         setTheme(themes[index])
 
     def eventFilter(self, watched, event) -> bool:
-        if watched in (self.templates_page.search_input, self.favorites_page.search_input) and event.type() == QEvent.Type.KeyPress:
+        # Qt may invoke this override from a base-window constructor before our
+        # pages exist, so resolve them defensively during early initialization.
+        templates_page = getattr(self, "templates_page", None)
+        favorites_page = getattr(self, "favorites_page", None)
+        search_inputs = tuple(
+            page.search_input
+            for page in (templates_page, favorites_page)
+            if page is not None and hasattr(page, "search_input")
+        )
+        if watched in search_inputs and event.type() == QEvent.Type.KeyPress:
             if event.key() in (Qt.Key.Key_Down, Qt.Key.Key_Tab):
-                page = self.templates_page if watched is self.templates_page.search_input else self.favorites_page
+                page = templates_page if watched is templates_page.search_input else favorites_page
                 if page.template_table.rowCount():
                     page.template_table.setFocus()
                     page.template_table.selectRow(max(0, page.template_table.currentRow()))
