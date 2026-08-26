@@ -236,7 +236,8 @@ class CommandPalette(WindowBase):
             else:
                 page.preview.clear()
             page.status_label.setText(f"{len(templates)} template(s) · Enter to copy · Esc to hide")
-
+        self.update_preview()
+        
     def selected_template(self) -> Template | None:
         page = self.active_page()
         row = page.template_table.currentRow()
