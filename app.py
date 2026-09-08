@@ -6,9 +6,8 @@ from PySide6.QtCore import QObject, QLockFile, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
-from qfluentwidgets import Theme, setTheme
-
 from core.settings import SettingsService
+from core.theme import apply_application_theme
 from ui.command_palette import CommandPalette
 
 SERVER_NAME = "CaseTemplates-single-instance-v1"
@@ -66,8 +65,14 @@ def main() -> int:
         instance_lock.unlock()
         return 1
 
-    theme_key = SettingsService().data.get("theme", "auto")
-    setTheme({"light": Theme.LIGHT, "dark": Theme.DARK}.get(theme_key, Theme.AUTO))
+    settings = SettingsService()
+    theme_key = settings.data.get("theme", "auto")
+    apply_application_theme(theme_key)
+    app.styleHints().colorSchemeChanged.connect(
+        lambda _scheme: apply_application_theme("auto")
+        if SettingsService().data.get("theme", "auto") == "auto"
+        else None
+    )
     window = CommandPalette()
     bridge = ActivationBridge(app)
     bridge.requested.connect(window.activate_from_external_request)

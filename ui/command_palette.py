@@ -13,11 +13,12 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import (
     BodyLabel, CheckBox, ComboBox, FluentIcon, FluentWindow, PlainTextEdit,
     NavigationInterface, PrimaryPushButton, PushButton, SearchLineEdit,
-    TableWidget, Theme, setTheme,
+    TableWidget,
 )
 
 from core.clipboard import ClipboardService
 from core.settings import SettingsService
+from core.theme import THEME_KEYS, apply_application_theme
 from core.templates import TemplateService
 from models.template import Template
 from ui.editor import TemplateEditor
@@ -307,11 +308,10 @@ class CommandPalette(WindowBase):
         self.refresh_templates()
 
     def set_theme(self, index: int) -> None:
-        keys = ["auto", "light", "dark"]
-        themes = [Theme.AUTO, Theme.LIGHT, Theme.DARK]
-        self.settings.data["theme"] = keys[index]
+        theme_key = THEME_KEYS[index]
+        self.settings.data["theme"] = theme_key
         self.settings.save()
-        setTheme(themes[index])
+        apply_application_theme(theme_key)
 
     def eventFilter(self, watched, event) -> bool:
         # Qt may invoke this override from a base-window constructor before our
