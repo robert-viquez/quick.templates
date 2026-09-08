@@ -23,11 +23,13 @@ irm https://raw.githubusercontent.com/robert-viquez/quick.templates/main/install
 
 ## Screenshots
 
-| Screenshot | Details | Screenshot | Details |
-| --- | --- | --- | --- |
-| ![Template Library](docs/screenshots/templates.png) | Search and preview templates. | ![Favorites](docs/screenshots/favorites.png) | Access frequently used templates. |
-| ![Create Template](docs/screenshots/new-template.png) | Create a template. | ![Edit Template](docs/screenshots/edit-template.png) | Update existing content. |
-| ![Folder Management](docs/screenshots/folders.png) | Organize the library. | ![Settings](docs/screenshots/settings.png) | Configure appearance and usage counts. |
+| Template Library | Favorites |
+| --- | --- |
+| ![Template Library](docs/screenshots/templates-readme.png) | ![Favorites](docs/screenshots/favorites-readme.png) |
+| Search, preview, and manage templates. | Access frequently used templates. |
+| **Edit Template** | **Settings** |
+| ![Edit Template](docs/screenshots/edit-template-readme.png) | ![Settings](docs/screenshots/settings-readme.png) |
+| Update a template's name, folder, or content. | Configure appearance and usage counts. |
 
 ## Documentation
 
