@@ -28,14 +28,13 @@ Templates can be organized into folders, marked as favorites, previewed, and cop
 | ![Create Template](docs/screenshots/new-template.png) | **Create Template**<br>Add content and select its destination folder. | ![Edit Template](docs/screenshots/edit-template.png) | **Edit Template**<br>Update a template's name, folder, or content. |
 | ![Folder Management](docs/screenshots/folders.png) | **Folder Management**<br>Manage folders and choose the library location. | ![Settings](docs/screenshots/settings.png) | **Settings**<br>Control usage counts and color mode. |
 
-Each screenshot is stored as an individual image under `docs/screenshots/`.
 
 ## How It Works
 
-1. Create a reusable template.
-2. Save it in the root library or a folder.
-3. Find it through search or Favorites.
-4. Select it and press Enter to copy its content.
+1. Create a template.
+2. Save it in the root library or a subfolder.
+3. Find it through text search or Favorites.
+4. Select it and press Enter to copy its content to the clipboard.
 
 Press `Ctrl+Alt+V` to show Quick Templates and `Esc` to hide it.
 
