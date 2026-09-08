@@ -31,7 +31,9 @@ irm https://raw.githubusercontent.com/robert-viquez/quick.templates/main/install
 
 ## Documentation
 
+- [Documentation home](docs/index.md)
 - [Usage and configuration](docs/USAGE.md)
+- [Technical overview](docs/technical-overview.md)
 - [Contributing](CONTRIBUTING.md)
 
 Issues and pull requests are welcome.

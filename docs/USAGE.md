@@ -1,5 +1,7 @@
 # Usage and Configuration
 
+[Documentation home](index.md) · [Technical overview](technical-overview.md) · [Contributing](../CONTRIBUTING.md)
+
 ## Basic Workflow
 
 1. Create a reusable template.
